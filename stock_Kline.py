@@ -90,6 +90,28 @@ def checkUp(data, day):
         return True
     return False
 
+# 判斷大紅K
+def bigRedK(data):
+    if (checkRedBlackK(data) is False): return False
+    if ((data['c'] - data['o']) / data['o'] >= 0.03): return True
+    return False
+
+# 判斷十字K
+def crossK(data):
+    # 紅K情境
+    if (checkRedBlackK(data)):
+        # 必須要有上下影線
+        if (data['h'] == data['c'] or data['l'] == data['o']): return False
+        # 實體線小於0.5%
+        if ((data['c'] - data['o']) / data['o'] < 0.005): return True
+    # 黑K情境
+    else:
+        # 必須要有上下影線
+        if (data['h'] == data['o'] or data['l'] == data['c']): return False
+        # 實體線小於0.5%
+        if ((data['o'] - data['c']) / data['c'] < 0.01): return True
+    return False
+
 # 紅K吞噬黑k
 def redEatBlack(id, data, day):
     lastKline = {}
@@ -136,6 +158,29 @@ def metor(id, data, day):
     if ( (entityL - lowest) / entityL < 0.003 and (entityH - entityL) / entityH < 0.006 and (highest - entityH) > ( entityH - entityL) * 3):
         print(id)
 
+# 串聯k(十字跳空)
+def tandemK(id, data, day):
+    # [o]開、[h]高、[l]低、[c]收、[v]量
+    lastKline = {}
+    secLastKline = {}
+    # 最後一條K
+    lastKline['o'] = data['o'][len(data['o'])-day]
+    lastKline['c'] = data['c'][len(data['c'])-day]
+    lastKline['h'] = data['h'][len(data['h'])-day]
+    lastKline['l'] = data['l'][len(data['l'])-day]
+    lastKline['v'] = data['v'][len(data['v'])-day]
+    # 倒數第二條K
+    secLastKline['o'] = data['o'][len(data['o'])-day-1]
+    secLastKline['c'] = data['c'][len(data['c'])-day-1]
+    secLastKline['h'] = data['h'][len(data['h'])-day-1]
+    secLastKline['l'] = data['l'][len(data['l'])-day-1]
+    secLastKline['v'] = data['v'][len(data['v'])-day-1]
+    # 先判斷前一天是不是大紅K
+    if (bigRedK(secLastKline) is False): return False
+    # 判斷當天跳空和十字線
+    if (secLastKline['c'] < lastKline['o'] and crossK(lastKline)): 
+        print(id)
+
 def getKline(id):
     query['symbol'] = id
     try:
@@ -145,15 +190,18 @@ def getKline(id):
         # 當天 = 1，昨天 = 2...
         day = 1
         # [o]開、[h]高、[l]低、[c]收、[v]量
-        if(data['s'] == 'ok' and len(data['o']) > 50 and checkUp(data, day)):
-            redEatBlack(id, data, day)
+        # if(data['s'] == 'ok' and len(data['o']) > 50 and checkUp(data, day)):
+        #     redEatBlack(id, data, day)
+        if(data['s'] == 'ok' and len(data['o']) > 50 ):
+            tandemK(id, data, day)
     except Exception as e:
-        print(id, data, e)
+        print('有點問題',id, e)
 
 
 if __name__ == '__main__':
     pool = Pool()
     getCmKey()
+    # getKline('1305')
     getAllStock(pool)
     pool.close()
     pool.join()
